@@ -1,0 +1,8 @@
+{
+  "check_interval_seconds": 5,
+  "sites": [
+    "https://google.com",
+    "https://github.com",
+    "https://nonexistentwebsite.example.com"
+  ]
+}
