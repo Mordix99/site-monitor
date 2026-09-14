@@ -1,9 +1,0 @@
-{
-  "check_interval_seconds": 5,
-  "discord_webhook_url": "https://discord.com/api/webhooks/1544767223602749594/XDBxdOFyxc_oX5cwbmYys1g6q5kYffLOqRrRh_4Z-Qur0q6turbk_poEPQTYF-Vu2REg",
-  "sites": [
-    "https://google.com",
-    "https://github.com",
-    "https://nonexistentwebsite.example.com"
-  ]
-}
