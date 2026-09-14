@@ -1,0 +1,9 @@
+services:
+  site-monitor:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./site_status.csv:/app/site_status.csv
+      - ./config.json:/app/config.json
+    restart: always

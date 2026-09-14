@@ -8,7 +8,7 @@ COPY requirements.txt .
 # intall dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code to the container
-COPY main.py config.json ./
+COPY main.py ./
 # Set the command to run the application
 CMD ["python","-u", "main.py"]
 

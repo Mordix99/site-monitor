@@ -4,3 +4,4 @@ __pycache__/
 site_status.csv
 .vscode/
 config.json
+.env
