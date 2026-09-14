@@ -1,0 +1,9 @@
+{
+  "check_interval_seconds": 5,
+  "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL",
+  "sites": [
+    "https://google.com",
+    "https://github.com",
+    "https://nonexistentwebsite.example.com"
+  ]
+}
