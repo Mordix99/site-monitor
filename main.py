@@ -5,8 +5,9 @@ import time
 from datetime import datetime
 import csv
 import os
+from dotenv import load_dotenv
 
-
+load_dotenv()
 
 # Function to check the status of a website
 def check_site(url):
@@ -67,7 +68,7 @@ def send_discord_notification(webhook_url, result,event_type="DOWN"):
         title = "Site Up Alert"
     # Prepare the message payload
     message = {
-        "content": f"Site Check Result:\nURL: {result['url']}\nStatus: {result['status']}\nStatus Code: {result.get('status_code', 'N/A')}\nResponse Time: {result.get('response_time', 'N/A')} seconds\nTimestamp: {result['timestamp']}"
+        "content": f"***{title}***\nURL: {result['url']}\nStatus: {result['status']}\nStatus Code: {result.get('status_code', 'N/A')}\nResponse Time: {result.get('response_time', 'N/A')} seconds\nTimestamp: {result['timestamp']}"
     }
     try:
         response = requests.post(webhook_url, json=message)
@@ -83,7 +84,7 @@ def send_discord_notification(webhook_url, result,event_type="DOWN"):
 if __name__ == "__main__":
     # Load configuration and get the Discord webhook URL
     config = load_config()
-    webhook_url = config.get("discord_webhook_url")
+    webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     
     
 #  
