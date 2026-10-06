@@ -5,12 +5,24 @@ import time
 from datetime import datetime
 import csv
 import os
+import signal
+import logging
+import sys
 from dotenv import load_dotenv
+from enum import Enum
 
 load_dotenv()
+running = True
+class SiteStatus(Enum):
+    REACHABLE = "reachable"
+    UNREACHABLE = "unreachable"
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
 # Function to check the status of a website
-def check_site(url):
+def check_site(url: str) -> dict:
 
     site_dict = {
         "timestamp": datetime.now().isoformat(),
@@ -23,28 +35,30 @@ def check_site(url):
     try:
         response = requests.get(url, timeout=5)
         if response.status_code < 400:
-            site_dict["status"] = "reachable"
-            site_dict["status_code"] = response.status_code
-            site_dict["response_time"] = response.elapsed.total_seconds()
+            site_dict["status"] = SiteStatus.REACHABLE.value
         else:
-            site_dict["status"] = "unreachable"
-            site_dict["status_code"] = response.status_code
-            site_dict["response_time"] = response.elapsed.total_seconds()
+            site_dict["status"] = SiteStatus.UNREACHABLE.value
+        site_dict["status_code"] = response.status_code
+        site_dict["response_time"] = response.elapsed.total_seconds()
     except requests.exceptions.RequestException as e:
-        site_dict["status"] = "unreachable"
+        site_dict["status"] = SiteStatus.UNREACHABLE.value
 
     return site_dict
 
 # Function to load configuration from a JSON file
 def load_config(config_file="config.json"):
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-    return config
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        return config
+    except FileNotFoundError:
+        logging.error(f"Configuration file {config_file} not found.")
+        sys.exit(1)
 # Function to save results to a CSV file
 def save_to_csv(results,filename):
     # Check if results is empty
     if not results:
-        print("No results to save.")
+        logging.info("No results to save.")
         return
     # Check if the file already exists to determine if we need to write the header
     file_exists = os.path.isfile(filename)
@@ -59,7 +73,7 @@ def save_to_csv(results,filename):
 def send_discord_notification(webhook_url, result,event_type="DOWN"):
     # Check if the webhook URL is provided
     if not webhook_url:
-        print("Discord webhook URL is not configured.")
+        logging.error("Discord webhook URL is not configured.")
         return
 
     if event_type == "DOWN":
@@ -73,53 +87,59 @@ def send_discord_notification(webhook_url, result,event_type="DOWN"):
     try:
         response = requests.post(webhook_url, json=message)
         if response.status_code == 204:
-            print(f"Notification sent for {result['url']}")
+            logging.info(f"Notification sent for {result['url']}")
         else:
-            print(f"Failed to send notification for {result['url']}. Status code: {response.status_code}")
+            logging.error(f"Failed to send notification for {result['url']}. Status code: {response.status_code}")
     except requests.exceptions.RequestException as e:
-        print(f"Error sending notification for {result['url']}: {e}")
+        logging.error(f"Error sending notification for {result['url']}: {e}")
 
+def handle_exit(signum, frame):
+    logging.info("Program terminated by user.")
+    global running
+    running = False
+    return 
 
-# Main execution
-if __name__ == "__main__":
-    # Load configuration and get the Discord webhook URL
+    
+    
+def main():
+    
     config = load_config()
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     
-    
-#  
-    try:
-        # Set the check interval from the configuration, defaulting to 10 seconds if not specified
-        interval = config.get("check_interval_seconds", 10)
-        # Initialize a dictionary to keep track of the last known status of each site
-        last_known_status = {}
+    interval = config.get("check_interval_seconds", 10)
+    last_known_status = {}
 
-        while True:
-            # Perform the site checks and save results to CSV
-            cycle_results = []
-            for url in config["sites"]:
-                result = check_site(url)
-                cycle_results.append(result)
-                print(result)
+    while running:
+        cycle_results = []
+        for url in config["sites"]:
+            result = check_site(url)
+            cycle_results.append(result)
+            logging.info(result)
                 
-                previous_status = last_known_status.get(url)
-                current_status = result["status"]
+            previous_status = last_known_status.get(url)
+            current_status = result["status"]
 
-                # Check for status changes and send notifications accordingly
-                if current_status == "unreachable" and previous_status != "unreachable":
-                    send_discord_notification(webhook_url, result, event_type="DOWN")
+            
+            if current_status == SiteStatus.UNREACHABLE.value and previous_status != SiteStatus.UNREACHABLE.value:
+                 send_discord_notification(webhook_url, result, event_type="DOWN")
 
-                elif current_status == "reachable" and previous_status == "unreachable":
-                    send_discord_notification(webhook_url, result, event_type="RECOVERED")
-                # Update the last known status for the site
-                last_known_status[url] = current_status
+            
+            elif current_status == SiteStatus.REACHABLE.value and previous_status == SiteStatus.UNREACHABLE.value:
+                 send_discord_notification(webhook_url, result, event_type="RECOVERED")
+            
+            last_known_status[url] = current_status
 
-            # Save the results of the current cycle to a CSV file    
-            save_to_csv(cycle_results, "site_status.csv")
-            print("-" * 40)
-            # Wait for the specified interval before the next check
-            time.sleep(interval)
-    except KeyboardInterrupt:
-        print("Program terminated by user.")
+        save_to_csv(cycle_results, "site_status.csv")
+        
+        for _ in range(interval):
+            if not running:
+                break
+            time.sleep(1)
+    
        
   
+# Main execution
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, handle_exit)
+    signal.signal(signal.SIGINT, handle_exit)
+    main()
